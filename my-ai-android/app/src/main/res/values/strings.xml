@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MyAI</string>
+    <string name="chat_hint">Message MyAI...</string>
+    <string name="settings">Settings</string>
+    <string name="server_config">Server Configuration</string>
+    <string name="permissions">Permissions</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="sending">Sending...</string>
+    <string name="error_connection">Connection error</string>
+    <string name="permission_required">Permission Required</string>
+    <string name="allow">Allow</string>
+    <string name="deny">Deny</string>
+    <string name="always_allow">Always Allow</string>
+</resources>

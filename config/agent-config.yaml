@@ -1,0 +1,29 @@
+agent:
+  core: "agent-zero"
+  language: "id"
+  thinking_mode: true
+  
+tools:
+  enabled:
+    - filesystem
+    - terminal
+    - python
+    - browser
+    - git
+    - calculator
+    - custom
+  disabled: []
+
+permissions:
+  files: "ask"
+  terminal: "ask"
+  camera: "ask"
+  microphone: "ask"
+  flash: "allow"
+  sms: "deny"
+  contacts: "deny"
+  notifications: "allow"
+  clipboard: "allow"
+  wifi: "allow"
+  battery: "allow"
+  apps: "ask"

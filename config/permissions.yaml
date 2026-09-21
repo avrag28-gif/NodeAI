@@ -1,0 +1,38 @@
+permissions:
+  android:
+    flash:
+      default: "allow"
+      description: "Toggle flashlight"
+    camera:
+      default: "ask"
+      description: "Take photos"
+    microphone:
+      default: "ask"
+      description: "Record audio"
+    files:
+      default: "ask"
+      description: "Access files"
+    sms:
+      default: "deny"
+      description: "Send SMS"
+    contacts:
+      default: "deny"
+      description: "Read contacts"
+    notifications:
+      default: "allow"
+      description: "Show notifications"
+    clipboard:
+      default: "allow"
+      description: "Clipboard access"
+    wifi:
+      default: "allow"
+      description: "WiFi info"
+    battery:
+      default: "allow"
+      description: "Battery status"
+    apps:
+      default: "ask"
+      description: "Launch apps"
+    location:
+      default: "ask"
+      description: "GPS location"

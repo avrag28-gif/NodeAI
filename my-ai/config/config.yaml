@@ -1,0 +1,42 @@
+# MyAI Configuration
+
+server:
+  host: "0.0.0.0"
+  port: 5000
+  auth_token: "CHANGE_ME_TO_A_SECRET_TOKEN"
+  workspace: "C:\\NodeAi\\my-ai\\workspace"
+
+llm:
+  engine: "llama.cpp"
+  host: "127.0.0.1"
+  port: 8080
+  model: "models\\qwen2.5-3b-instruct-q4_k_m.gguf"
+  context_length: 4096
+  max_tokens: 2048
+  temperature: 0.7
+  gpu_layers: 0
+
+agent:
+  name: "MyAI"
+  max_iterations: 20
+  max_retries: 3
+  step_timeout: 300
+  context_compression_threshold: 20
+
+memory:
+  short_term_limit: 50
+  long_term_enabled: true
+  episodic_enabled: true
+
+permissions:
+  filesystem:
+    read: "ALLOW"
+    write: "ALLOW"
+    delete: "ASK"
+  terminal: "ASK"
+  python: "ALLOW"
+  internet: "ALLOW"
+  camera: "ASK"
+  microphone: "ASK"
+  flashlight: "ALLOW"
+  notifications: "ALLOW"

@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Models (too large for GitHub)
+*.gguf
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary
+*.tmp
+*.temp
+
+# Compiled binaries
+*.exe
+*.dll
+*.lib
+*.exp
+*.obj
+*.o
+*.a
+
+# Build artifacts
+build/
+intermediates/
+generated/
+outputs/
+*.apk
+
+# Database files
+*.db
+
+# Android
+my-ai-android/app/build/
+my-ai-android/.gradle/
+my-ai-android/local.properties
+my-ai-android/gradle/wrapper/gradle-wrapper.jar
+
+# llama.cpp binaries
+my-ai/llama.cpp/*.exe
+my-ai/llama.cpp/*.dll
+my-ai/llama.cpp/build/
+
+# Temp files from this project
+my-ai/Malware.bat
+my-ai/cara_menghapus_iklan_di_apk_android.txt
