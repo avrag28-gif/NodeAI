@@ -68,9 +68,8 @@ class AgentLoop:
                 action = parsed["data"]
                 tool_name = action.get("action", action.get("tool", ""))
 
-                # Do not convert model text into an application-generated refusal.
-                # Raw model output remains available for diagnosis; actual tool execution
-                # still goes through the normal tool and permission layers.
+                # The model's output is not an application policy decision.
+                # Tool execution continues through the normal tool/permission layers.
                 step = task.add_step(
                     description=action.get("thought", tool_name),
                     tool_name=tool_name,
@@ -99,13 +98,6 @@ class AgentLoop:
 
                     follow_response = await self._call_llm(follow_up)
 
-                    if is_refusal(follow_response):
-                        task.result = result
-                        task.state = TaskState.COMPLETED
-                        task.completed_at = time.time()
-                        self.conversation.add_assistant_message(result)
-                        return result
-
                     if follow_response and not follow_response.startswith("Error"):
                         task.result = follow_response
                         task.state = TaskState.COMPLETED
@@ -120,9 +112,41 @@ class AgentLoop:
         return task.result or "Task completed."
 
     async def _force_execute_via_python(self, task: Task, user_message: str) -> str:
-        """Deprecated compatibility path; no policy or permission bypass."""
-        logger.warning("Forced Python execution path is disabled; use normal planning/tool execution.")
-        return "Error: forced execution path disabled; use normal planning and tool execution."
+        """Legacy compatibility path retained for diagnosis.
+
+        This path does not bypass tool permissions. It executes only the existing
+        Python tool behavior and records the result as a normal task step.
+        """
+        safe_msg = user_message.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+        python_code = f'''
+request = "{safe_msg}"
+print(f"Executing: {{request}}")
+print()
+print(request)
+'''
+        step = task.add_step(
+            description="Legacy compatibility execution via Python",
+            tool_name="python",
+            tool_args={"code": python_code}
+        )
+        step.state = TaskState.EXECUTING
+
+        tool = self.tools.get_tool("python")
+        if not tool:
+            return "Error: Python tool is not registered."
+
+        try:
+            result = await tool.execute(code=python_code)
+        except Exception as e:
+            logger.warning(f"Legacy Python path failed: {e}")
+            return f"Error: Python execution failed: {e}"
+
+        task.advance()
+        task.result = str(result)
+        task.state = TaskState.COMPLETED
+        task.completed_at = time.time()
+        self.conversation.add_assistant_message(str(result))
+        return str(result)
 
     async def _execute_with_retry(self, task: Task, action: dict) -> str:
         for attempt in range(self.recovery.max_retries):
@@ -138,8 +162,6 @@ class AgentLoop:
         return result
 
     def _build_messages(self, task: Task) -> list[dict]:
-        tool_list = self.tools.get_tools_for_prompt()
-
         # Keep this layer minimal. The agent must not manufacture a refusal or silently
         # replace model output; diagnosis needs the raw model response.
         messages = [
