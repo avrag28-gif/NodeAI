@@ -46,6 +46,9 @@ class LLMClient:
             data = response.json()
             result = data["choices"][0]["message"]["content"]
             self.last_trace["response"] = result
+            # Capture server-reported model metadata when available.
+            self.last_trace["server_response_id"] = data.get("id")
+            self.last_trace["server_model"] = data.get("model")
             return result
         except httpx.ConnectError:
             logger.error(f"Cannot connect to LLM at {self.base_url}")
