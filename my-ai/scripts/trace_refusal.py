@@ -87,13 +87,26 @@ async def main():
 
     # C: MyAI AgentLoop. Tool registry is intentionally empty so this test
     # isolates the chat/planner layer and does not execute any external action.
-    loop = AgentLoop(client, ToolRegistry(), {"max_iterations": 1})
-    c = await loop.process_message(args.prompt)
-    print("=== C: MYAI AGENT LOOP ===")
-    print(c)
-    print()
-    print("Agent LLM trace:")
-    print(json.dumps(client.last_trace, indent=2, ensure_ascii=False, default=str))
+    # Run the same AgentLoop request at two temperatures. This is important:
+    # AgentLoop previously used the LLMClient default temperature (0.7), while
+    # A and B above explicitly use 0.0.
+    for temperature in (0.0, 0.7):
+        original_chat = client.chat
+
+        async def chat_with_temperature(messages, max_tokens=2048, _temperature=temperature):
+            return await original_chat(
+                messages, max_tokens=max_tokens, temperature=_temperature
+            )
+
+        client.chat = chat_with_temperature
+        loop = AgentLoop(client, ToolRegistry(), {"max_iterations": 1})
+        c = await loop.process_message(args.prompt)
+        print(f"=== C: MYAI AGENT LOOP @ temperature={temperature} ===")
+        print(c)
+        print()
+        print("Agent LLM trace:")
+        print(json.dumps(client.last_trace, indent=2, ensure_ascii=False, default=str))
+        print()
 
     await client.close()
 
