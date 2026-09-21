@@ -38,6 +38,8 @@ class AgentLoop:
         self.config = config or {}
         self.max_iterations = self.config.get("max_iterations", 20)
         self.step_timeout = self.config.get("step_timeout", 300)
+        self.temperature = self.config.get("temperature", 0.7)
+        self.max_tokens = self.config.get("max_tokens", 2048)
 
     async def process_message(self, user_message: str) -> str:
         self.conversation.add_user_message(user_message)
@@ -172,7 +174,11 @@ print(request)
 
     async def _call_llm(self, messages: list[dict]) -> str:
         try:
-            return await self.llm.chat(messages)
+            return await self.llm.chat(
+                messages,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+            )
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             return f"Error: LLM call failed: {e}"
