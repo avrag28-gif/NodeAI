@@ -74,7 +74,11 @@ async def main():
     workspace = config.get("server", {}).get("workspace", "workspace")
     setup_tools(tool_registry, permissions, workspace)
 
-    agent_config = config.get("agent", {})
+    agent_config = dict(config.get("agent", {}))
+    # Keep AgentLoop sampling aligned with the configured LLM defaults unless
+    # an explicit agent-level override is present.
+    agent_config.setdefault("temperature", llm_config.get("temperature", 0.7))
+    agent_config.setdefault("max_tokens", llm_config.get("max_tokens", 2048))
     agent_loop = AgentLoop(llm_client, tool_registry, agent_config)
 
     server_config = config.get("server", {})
