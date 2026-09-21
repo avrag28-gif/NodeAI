@@ -33,6 +33,17 @@ if ($containers -contains "agent-zero") {
 Write-Host "[3/4] Checking llama.cpp..." -ForegroundColor Yellow
 if (Test-Path ".\llama.cpp\build\bin\llama-server.exe") {
     Write-Host "  llama.cpp found!" -ForegroundColor Green
+    try {
+        $modelInfo = Invoke-RestMethod -Uri "http://127.0.0.1:8080/v1/models" -TimeoutSec 3
+        $activeModel = $modelInfo.data[0].id
+        if ($activeModel) {
+            Write-Host "  Active llama.cpp model: $activeModel" -ForegroundColor Cyan
+        } else {
+            Write-Host "  llama.cpp reachable, but no model id was reported." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  llama.cpp server is not reachable on port 8080 yet." -ForegroundColor Yellow
+    }
 } else {
     Write-Host "  llama.cpp not built yet. Run build-llama.ps1" -ForegroundColor Yellow
 }
