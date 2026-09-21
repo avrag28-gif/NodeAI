@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import httpx
 from typing import Optional
 
@@ -11,6 +12,14 @@ class LLMClient:
         self.base_url = f"http://{host}:{port}"
         self.model = model
         self.client = httpx.AsyncClient(timeout=120.0)
+        # Diagnostic state: lets the agent distinguish model behavior from agent-layer behavior.
+        self.last_trace = {
+            "started_at": None,
+            "messages": None,
+            "response": None,
+            "error": None,
+            "model": model,
+        }
 
     async def chat(self, messages: list[dict], max_tokens: int = 2048, temperature: float = 0.7) -> str:
         payload = {
@@ -18,6 +27,13 @@ class LLMClient:
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": False
+        }
+        self.last_trace = {
+            "started_at": time.time(),
+            "messages": messages,
+            "response": None,
+            "error": None,
+            "model": self.model,
         }
 
         try:
@@ -28,12 +44,16 @@ class LLMClient:
             )
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            result = data["choices"][0]["message"]["content"]
+            self.last_trace["response"] = result
+            return result
         except httpx.ConnectError:
             logger.error(f"Cannot connect to LLM at {self.base_url}")
+            self.last_trace["error"] = "LLM server not running"
             return "Error: LLM server not running. Start llama.cpp first."
         except Exception as e:
             logger.error(f"LLM error: {e}")
+            self.last_trace["error"] = str(e)
             return f"Error: {e}"
 
     async def complete(self, prompt: str, max_tokens: int = 2048) -> str:
