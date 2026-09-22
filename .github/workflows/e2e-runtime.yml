@@ -73,7 +73,6 @@ jobs:
         env:
           MYAI_AUTH_TOKEN: github-actions-e2e-token
         run: |
-          cd my-ai
           python server/app.py > /tmp/nodeai-server.log 2>&1 &
           echo $! > /tmp/nodeai-server.pid
           for i in {1..60}; do
