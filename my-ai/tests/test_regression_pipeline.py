@@ -147,7 +147,7 @@ async def test_agentloop_system_prompt():
     call_args = llm.chat.call_args
     messages = call_args[0][0]
     assert messages[0]["role"] == "system", f"No system message: {messages}"
-    assert "helpful assistant" in messages[0]["content"], \
+    assert "NodeAI assistant" in messages[0]["content"], \
         f"System prompt changed: {messages[0]['content']}"
     print("PASS: AgentLoop system prompt consistent")
 
