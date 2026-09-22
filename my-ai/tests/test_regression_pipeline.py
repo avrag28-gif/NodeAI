@@ -4,6 +4,7 @@ import asyncio
 import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -107,6 +108,7 @@ def test_missing_auth():
 
 # --- AgentLoop tests (mock) ---
 
+@pytest.mark.asyncio
 async def test_agentloop_returns_llm_text():
     llm = make_mock_llm("This is the answer")
     loop = AgentLoop(llm, make_mock_tools())
@@ -115,6 +117,7 @@ async def test_agentloop_returns_llm_text():
     print("PASS: AgentLoop returns LLM text directly")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_temperature():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools(), {"temperature": 0.3})
@@ -125,6 +128,7 @@ async def test_agentloop_temperature():
     print("PASS: AgentLoop forwards temperature")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_max_tokens():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools(), {"max_tokens": 1024})
@@ -135,6 +139,7 @@ async def test_agentloop_max_tokens():
     print("PASS: AgentLoop forwards max_tokens")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_system_prompt():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools())
@@ -147,6 +152,7 @@ async def test_agentloop_system_prompt():
     print("PASS: AgentLoop system prompt consistent")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_no_refusal():
     llm = make_mock_llm("I cannot do that")
     loop = AgentLoop(llm, make_mock_tools())
@@ -156,6 +162,7 @@ async def test_agentloop_no_refusal():
     print("PASS: AgentLoop no refusal detection")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_user_message():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools())
@@ -189,6 +196,46 @@ def test_config_consistency():
     assert agent_tokens is None or agent_tokens == llm_tokens, \
         f"max_tokens mismatch: LLM={llm_tokens}, Agent={agent_tokens}"
     print("PASS: LLM config consistent (agent inherits LLM defaults)")
+
+
+@pytest.mark.asyncio
+async def test_agentloop_preserves_multi_turn_context():
+    llm = make_mock_llm("ALPHA-7392")
+    loop = AgentLoop(llm, make_mock_tools())
+    await loop.process_message("Ingat token konteks ini: ALPHA-7392.")
+    await loop.process_message("Token konteks apa yang tadi saya berikan?")
+    messages = llm.chat.call_args[0][0]
+    user_msgs = [m["content"] for m in messages if m["role"] == "user"]
+    assert user_msgs == [
+        "Ingat token konteks ini: ALPHA-7392.",
+        "Token konteks apa yang tadi saya berikan?",
+    ], f"Conversation context missing or reordered: {messages}"
+
+
+@pytest.mark.asyncio
+async def test_agentloop_action_prompt_requires_actual_tool_use():
+    llm = make_mock_llm("OK")
+    loop = AgentLoop(llm, make_mock_tools())
+    await loop.process_message("Modifikasi kode project dan verifikasi hasilnya.")
+    system_text = "\n".join(
+        m["content"] for m in llm.chat.call_args[0][0] if m["role"] == "system"
+    )
+    assert "perform the requested action" in system_text
+    assert "verify the result" in system_text
+    assert "Never claim" in system_text
+
+
+def test_conversation_context_budget_keeps_complete_recent_messages():
+    from core.agent.conversation import ConversationManager
+    conversation = ConversationManager(max_context_chars=20)
+    conversation.add_user_message("old message")
+    conversation.add_assistant_message("recent")
+    conversation.add_user_message("current")
+    messages = conversation.get_messages_for_llm(max_messages=20)
+    assert messages == [
+        {"role": "assistant", "content": "recent"},
+        {"role": "user", "content": "current"},
+    ], f"Unexpected bounded context: {messages}"
 
 
 # --- Main ---
