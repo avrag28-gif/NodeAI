@@ -2,29 +2,12 @@ import json
 import time
 import logging
 import asyncio
-import re
 from typing import Optional
 from .task import Task, TaskState
 from .conversation import ConversationManager
 from .planner import Planner, Executor, ErrorRecovery
 
 logger = logging.getLogger(__name__)
-
-REFUSAL_PATTERNS = [
-    "i cannot", "i can't", "i am unable", "i'm unable",
-    "i am not able", "i'm not able", "i apologize",
-    "i'm sorry", "i am sorry", "not appropriate",
-    "cannot perform", "unable to assist", "not appropriate",
-    "does not comply", "cannot help with",
-]
-
-
-def is_refusal(text: str) -> bool:
-    text_lower = text.lower().strip()
-    for pattern in REFUSAL_PATTERNS:
-        if pattern in text_lower:
-            return True
-    return False
 
 
 class AgentLoop:
@@ -112,43 +95,6 @@ class AgentLoop:
             return "Max iterations reached."
 
         return task.result or "Task completed."
-
-    async def _force_execute_via_python(self, task: Task, user_message: str) -> str:
-        """Legacy compatibility path retained for diagnosis.
-
-        This path does not bypass tool permissions. It executes only the existing
-        Python tool behavior and records the result as a normal task step.
-        """
-        safe_msg = user_message.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
-        python_code = f'''
-request = "{safe_msg}"
-print(f"Executing: {{request}}")
-print()
-print(request)
-'''
-        step = task.add_step(
-            description="Legacy compatibility execution via Python",
-            tool_name="python",
-            tool_args={"code": python_code}
-        )
-        step.state = TaskState.EXECUTING
-
-        tool = self.tools.get_tool("python")
-        if not tool:
-            return "Error: Python tool is not registered."
-
-        try:
-            result = await tool.execute(code=python_code)
-        except Exception as e:
-            logger.warning(f"Legacy Python path failed: {e}")
-            return f"Error: Python execution failed: {e}"
-
-        task.advance()
-        task.result = str(result)
-        task.state = TaskState.COMPLETED
-        task.completed_at = time.time()
-        self.conversation.add_assistant_message(str(result))
-        return str(result)
 
     async def _execute_with_retry(self, task: Task, action: dict) -> str:
         for attempt in range(self.recovery.max_retries):

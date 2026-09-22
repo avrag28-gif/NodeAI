@@ -31,6 +31,8 @@ class LLMClient:
         self.last_trace = {
             "started_at": time.time(),
             "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
             "response": None,
             "error": None,
             "model": self.model,
@@ -46,7 +48,7 @@ class LLMClient:
             data = response.json()
             result = data["choices"][0]["message"]["content"]
             self.last_trace["response"] = result
-            # Capture server-reported model metadata when available.
+            self.last_trace["latency_ms"] = round((time.time() - self.last_trace["started_at"]) * 1000)
             self.last_trace["server_response_id"] = data.get("id")
             self.last_trace["server_model"] = data.get("model")
             return result
