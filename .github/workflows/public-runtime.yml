@@ -3,6 +3,10 @@ name: NodeAI Public Runtime
 on:
   workflow_dispatch:
 
+concurrency:
+  group: nodeai-public-runtime
+  cancel-in-progress: true
+
 jobs:
   public-runtime:
     runs-on: ubuntu-latest
