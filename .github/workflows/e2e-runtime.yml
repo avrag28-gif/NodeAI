@@ -85,6 +85,30 @@ jobs:
           cat /tmp/nodeai-server.log
           exit 1
 
+      - name: Start ngrok tunnel
+        working-directory: .
+        shell: bash
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip
+          unzip -o /tmp/ngrok.zip -d /tmp/ngrok >/dev/null
+          /tmp/ngrok/ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          /tmp/ngrok/ngrok http 5000 --log=stdout > /tmp/ngrok.log 2>&1 &
+          echo $! > /tmp/ngrok.pid
+          for i in {1..30}; do
+            url=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null | python -c 'import json,sys; d=json.load(sys.stdin); print(next((t["public_url"] for t in d.get("tunnels",[]) if t.get("proto")=="https"), ""))' || true)
+            if [ -n "$url" ]; then
+              echo "NODEAI_PUBLIC_URL=$url" >> "$GITHUB_ENV"
+              echo "### NodeAI public URL" >> "$GITHUB_STEP_SUMMARY"
+              echo "$url" >> "$GITHUB_STEP_SUMMARY"
+              echo "NodeAI public URL: $url"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/ngrok.log
+          exit 1
       - name: Verify runtime E2E
         shell: bash
         env:
