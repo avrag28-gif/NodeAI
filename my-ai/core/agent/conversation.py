@@ -1,4 +1,3 @@
-import json
 import time
 import logging
 from typing import Optional
@@ -8,8 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class ConversationManager:
-    def __init__(self, max_history: int = 50):
+    def __init__(self, max_history: int = 50, max_context_chars: int = 12000):
         self.max_history = max_history
+        self.max_context_chars = max_context_chars
         self.history: list[dict] = []
         self.current_task: Optional[Task] = None
         self.context: dict = {
@@ -44,10 +44,41 @@ class ConversationManager:
             "content": content,
             "timestamp": time.time()
         })
+        self._trim_history()
 
-    def get_messages_for_llm(self, max_messages: int = 20) -> list[dict]:
-        recent = self.history[-max_messages:]
-        return [{"role": m["role"], "content": m["content"]} for m in recent]
+    def get_messages_for_llm(
+        self,
+        max_messages: int = 20,
+        max_chars: Optional[int] = None,
+    ) -> list[dict]:
+        """Return recent complete messages within a bounded context budget.
+
+        Messages are never sliced mid-message. Newest context is retained first,
+        then returned in chronological order. The caller owns the canonical
+        system prompt, so persisted system messages are treated like history.
+        """
+        if max_messages <= 0:
+            return []
+
+        budget = max_chars or self.max_context_chars
+        selected: list[dict] = []
+        used_chars = 0
+
+        for message in reversed(self.history[-max_messages:]):
+            content = str(message.get("content", ""))
+            message_chars = len(content)
+
+            if selected and used_chars + message_chars > budget:
+                break
+
+            selected.append({
+                "role": message["role"],
+                "content": content,
+            })
+            used_chars += message_chars
+
+        selected.reverse()
+        return selected
 
     def _trim_history(self):
         if len(self.history) > self.max_history:
