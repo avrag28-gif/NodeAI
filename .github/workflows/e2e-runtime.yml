@@ -1,0 +1,158 @@
+name: NodeAI Runtime E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+jobs:
+  runtime-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: my-ai
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: my-ai/requirements.txt
+
+      - name: Install NodeAI dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Build llama.cpp server
+        working-directory: .
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git .ci-llama.cpp
+          cmake -S .ci-llama.cpp -B .ci-llama.cpp/build -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build .ci-llama.cpp/build --config Release --target llama-server -j2
+
+      - name: Download and verify Dolphin GGUF
+        working-directory: .
+        shell: bash
+        run: |
+          mkdir -p my-ai/models
+          curl -L --fail --retry 3 \
+            -o my-ai/models/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf \
+            "https://huggingface.co/bartowski/dolphin-2.9.4-llama3.1-8b-GGUF/resolve/main/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf?download=true"
+          echo "601e951c801c1d9140a89bf4f1acfc1ab34991e4ab18d9aaac8f09e3bab4001d  my-ai/models/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf" | sha256sum -c -
+
+      - name: Start llama-server
+        working-directory: .
+        shell: bash
+        run: |
+          .ci-llama.cpp/build/bin/llama-server \
+            -m my-ai/models/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf \
+            --host 127.0.0.1 --port 8080 \
+            -t 2 --ctx-size 2048 --temp 0.7 --top-p 0.95 \
+            --repeat-penalty 1.1 --min-p 0.05 > /tmp/llama-server.log 2>&1 &
+          echo $! > /tmp/llama-server.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
+              echo "llama-server READY"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/llama-server.log
+          exit 1
+
+      - name: Start NodeAI FastAPI
+        shell: bash
+        env:
+          MYAI_AUTH_TOKEN: github-actions-e2e-token
+        run: |
+          cd my-ai
+          python server/app.py > /tmp/nodeai-server.log 2>&1 &
+          echo $! > /tmp/nodeai-server.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5000/ >/dev/null 2>&1; then
+              echo "NodeAI READY"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/nodeai-server.log
+          exit 1
+
+      - name: Verify runtime E2E
+        shell: bash
+        env:
+          MYAI_AUTH_TOKEN: github-actions-e2e-token
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          import urllib.request
+          import urllib.error
+
+          base = "http://127.0.0.1:5000"
+          token = "github-actions-e2e-token"
+
+          def request(path, method="GET", body=None, auth=False):
+              headers = {"Content-Type": "application/json"}
+              if auth:
+                  headers["Authorization"] = f"Bearer {token}"
+              data = json.dumps(body).encode() if body is not None else None
+              req = urllib.request.Request(base + path, data=data, headers=headers, method=method)
+              return urllib.request.urlopen(req, timeout=180)
+
+          # API is alive.
+          root = json.load(request("/"))
+          assert root["status"] == "running"
+
+          # Auth is enforced.
+          try:
+              request("/api/chat", "POST", {"message": "hello"})
+              raise AssertionError("Unauthenticated /api/chat unexpectedly succeeded")
+          except urllib.error.HTTPError as e:
+              assert e.code == 401
+
+          # LLM is connected through NodeAI.
+          status = json.load(request("/api/status"))
+          assert status["llm_connected"] is True, status
+
+          # Real model response through FastAPI -> AgentLoop -> llama-server.
+          first = json.load(request(
+              "/api/chat", "POST",
+              {"message": "Reply with exactly: NODEAI_E2E_OK"},
+              auth=True
+          ))
+          text = first["response"]
+          assert text and "NODEAI_E2E_OK" in text, text
+
+          # Multi-turn context must retain the previous user message.
+          json.load(request(
+              "/api/chat", "POST",
+              {"message": "Remember this code: E2E_CONTEXT_742"},
+              auth=True
+          ))
+          second = json.load(request(
+              "/api/chat", "POST",
+              {"message": "What code did I just ask you to remember? Reply with only the code."},
+              auth=True
+          ))
+          assert "E2E_CONTEXT_742" in second["response"], second
+
+          print("RUNTIME_E2E_OK")
+          PY
+
+      - name: Dump runtime logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "===== llama-server.log ====="
+          cat /tmp/llama-server.log || true
+          echo "===== nodeai-server.log ====="
+          cat /tmp/nodeai-server.log || true
