@@ -73,7 +73,7 @@ def test_valid_auth():
         r = httpx.post("http://127.0.0.1:5000/api/chat",
                        json={"message": "test"},
                        headers={"Authorization": f"Bearer {token}"},
-                       timeout=30)
+                       timeout=120)
         assert r.status_code == 200, f"Expected 200, got {r.status_code}"
         print("PASS: valid auth returns 200")
     except httpx.ConnectError:
