@@ -81,9 +81,17 @@ jobs:
             sleep 2
           done
           test -n "$url" || { cat /tmp/ngrok.log; exit 1; }
+          printf '%s\n' "$url" > /tmp/nodeai-public-url.txt
           echo "### NodeAI public URL" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
           echo "NodeAI public URL: $url"
+
+      - name: Publish URL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodeai-public-url
+          path: /tmp/nodeai-public-url.txt
+          retention-days: 1
 
       - name: Hold public runtime
         shell: bash
