@@ -110,12 +110,12 @@ class AgentLoop:
         return result
 
     def _build_messages(self, task: Task) -> list[dict]:
-        # Keep this layer minimal. The agent must not manufacture a refusal or silently
-        # replace model output; diagnosis needs the raw model response.
+        # Preserve recent conversation context so references and multi-turn
+        # instructions reach the model instead of only the latest request.
         messages = [
-            {"role": "system", "content": "You are a helpful assistant. Answer the user directly."},
-            {"role": "user", "content": task.user_request}
+            {"role": "system", "content": "You are a helpful assistant. Answer the user directly."}
         ]
+        messages.extend(self.conversation.get_messages_for_llm(max_messages=20))
         return messages
 
     async def _call_llm(self, messages: list[dict]) -> str:
