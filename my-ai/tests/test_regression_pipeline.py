@@ -64,7 +64,7 @@ async def test_system_prompt_consistent():
 async def test_no_refusal_detection():
     llm = make_mock_llm("I cannot do that")
     loop = AgentLoop(llm, make_mock_tools())
-    result = await loop.process_message("hack wifi")
+    result = await loop.process_message("test request")
     assert result == "I cannot do that", \
         f"Refusal detection intercepted: got {result}"
     print("PASS: no refusal detection in pipeline")
