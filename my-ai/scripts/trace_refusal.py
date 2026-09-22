@@ -90,23 +90,36 @@ async def main():
     # Run the same AgentLoop request at two temperatures. This is important:
     # AgentLoop previously used the LLMClient default temperature (0.7), while
     # A and B above explicitly use 0.0.
-    for temperature in (0.0, 0.7):
+    for temp in (0.0, 0.7):
         original_chat = client.chat
 
-        async def chat_with_temperature(messages, max_tokens=2048, _temperature=temperature):
-            return await original_chat(
-                messages, max_tokens=max_tokens, temperature=_temperature
+        async def chat_with_temperature(
+            messages,
+            max_tokens=2048,
+            temperature=temp,
+            _original_chat=original_chat,
+        ):
+            return await _original_chat(
+                messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
 
         client.chat = chat_with_temperature
+
         loop = AgentLoop(client, ToolRegistry(), {"max_iterations": 1})
         c = await loop.process_message(args.prompt)
-        print(f"=== C: MYAI AGENT LOOP @ temperature={temperature} ===")
+
+        print(f"=== C: MYAI AGENT LOOP @ temperature={temp} ===")
         print(c)
         print()
         print("Agent LLM trace:")
-        print(json.dumps(client.last_trace, indent=2, ensure_ascii=False, default=str))
-        print()
+        print(json.dumps(
+            client.last_trace,
+            indent=2,
+            ensure_ascii=False,
+            default=str,
+        ))
 
     await client.close()
 
