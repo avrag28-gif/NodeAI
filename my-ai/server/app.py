@@ -1,3 +1,5 @@
+import os
+import re
 import sys
 import yaml
 import logging
@@ -27,7 +29,17 @@ logger = logging.getLogger("myai")
 
 def load_config(config_path: str = "config/config.yaml") -> dict:
     with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+        raw = f.read()
+
+    def expand_env(match):
+        name = match.group(1)
+        value = os.environ.get(name)
+        if value is None:
+            raise RuntimeError(f"Required environment variable {name} is not set")
+        return value
+
+    raw = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", expand_env, raw)
+    return yaml.safe_load(raw)
 
 
 def setup_tools(tool_registry: ToolRegistry, permissions: dict, workspace: str):

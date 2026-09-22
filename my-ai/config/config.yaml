@@ -3,7 +3,7 @@
 server:
   host: "0.0.0.0"
   port: 5000
-  auth_token: "CHANGE_ME_TO_A_SECRET_TOKEN"
+  auth_token: "${MYAI_AUTH_TOKEN}"
   workspace: "C:\\NodeAi\\my-ai\\workspace"
 
 llm:
