@@ -21,11 +21,13 @@ class LLMClient:
             "model": model,
         }
 
-    async def chat(self, messages: list[dict], max_tokens: int = 2048, temperature: float = 0.7) -> str:
+    async def chat(self, messages: list[dict], max_tokens: int = 2048, temperature: float = 1.2) -> str:
         payload = {
             "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
+            "top_p": 0.95,
+            "repeat_penalty": 1.15,
             "stream": False
         }
         self.last_trace = {
