@@ -44,32 +44,26 @@ class AgentLoop:
 
     def _strip_disclaimers(self, text: str) -> str:
         import re
-        patterns = [
-            r'\*\*Catatan\*\*:.*$',
-            r'\*\*Peringatan\*\*:.*$',
-            r'Catatan:.*$',
-            r'Peringatan:.*$',
-            r'Note:.*$',
-            r'Warning:.*$',
-            r'Perlu diingat.*$',
-            r'Perlu diketahui.*$',
-            r'Pastikan Anda.*$',
-            r'Gunakan.*dengan bijak.*$',
-            r'Gunakan.*sesuai hukum.*$',
-            r'sebaiknya.*$',
-            r'harap diperhatikan.*$',
-            r'berhati-hatilah.*$',
-            r'Please note.*$',
-            r'Always respect.*$',
-            r'Always use.*responsibly.*$',
-            r'simplified example.*$',
-            r'may not work.*$',
-            r'additional security measures.*$',
-            r'respect privacy.*$',
-            r'use such scripts.*$',
+        # Remove everything after common disclaimer markers
+        cutoff_patterns = [
+            r'(?i)\n\s*(catatan|peringatan|note|notes|warning|disclaimer|important|perlu diingat|perlu diketahui|pastikan|harap|sebaiknya|please note|always|remember|keep in mind|make sure|ensure)\s*[:\-].*$',
+            r'(?i)\n\s*(gunakan|gunakan.*bijak|gunakan.*hukum|respect|responsibly|ethically|legal|privacy|permission|authorized|allowed|izinkan|diizinkan|izin)\s*.*$',
+            r'(?i)\n\s*(beberapa|some|many)\s+(provider|api|service|layanan)\s+.*$',
+            r'(?i)\n\s*(anda perlu|you need to|you must|you should)\s+.*$',
+            r'(?i)\n\s*#+\s*(notes?|catatan|peringatan|note|warning)\s*.*$',
+            r'(?i)\n\s*[-*]\s*The script uses.*$',
+            r'(?i)\n\s*[-*]\s*You might need.*$',
+            r'(?i)\n\s*[-*]\s*Adjust the.*$',
+            r'(?i)\n\s*[-*]\s*This script assumes.*$',
+            r'(?i)\n\s*[-*]\s*Ensure.*$',
+            r'(?i)\n\s*[-*]\s*Make sure.*$',
+            r'(?i)\n\s*[-*]\s*Remember.*$',
+            r'(?i)\n\s*[-*]\s*Note.*$',
         ]
-        for p in patterns:
-            text = re.sub(p, '', text, flags=re.IGNORECASE | re.MULTILINE)
+        for p in cutoff_patterns:
+            match = re.search(p, text, re.MULTILINE)
+            if match:
+                text = text[:match.start()]
         text = re.sub(r'\n{3,}', '\n\n', text)
         return text.strip()
 

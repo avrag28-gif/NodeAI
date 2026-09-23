@@ -28,6 +28,24 @@ class LLMClient:
             "temperature": temperature,
             "top_p": 0.95,
             "repeat_penalty": 1.15,
+            "stop": [
+                "\nCatatan:", "\nPeringatan:", "\nNote:", "\nWarning:",
+                "\nPastikan", "\nPastikan Anda", "\nGunakan",
+                "\nPerlu diingat", "\nPerlu diketahui",
+                "\nBeberapa provider", "\nAnda perlu",
+                "\nPlease note", "\nAlways", "\nRemember",
+                "\nKeep in mind", "\nMake sure", "\nEnsure",
+                "\nUse it", "\nUse this", "\nUse responsibly",
+                "\nUse ethically", "\nUse legally",
+                "\nRespect privacy", "\nRespect the law",
+                "\nHormati privasi", "\nGunakan dengan bijak",
+                "\nGunakan sesuai hukum", "\nGunakan secara bertanggung jawab",
+                "\nHarap diperhatikan", "\nSebaiknya",
+                "\nDisclaimer:", "\nImportant:",
+                "\nThis code is for educational", "\nThis is for educational",
+                "\nFor educational purposes", "\nUntuk tujuan edukasi",
+                "\nI am not responsible", "\nSaya tidak bertanggung jawab",
+            ],
             "stream": False
         }
         self.last_trace = {
