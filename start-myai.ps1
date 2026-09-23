@@ -38,13 +38,13 @@ if ($llamaRunning) {
 } else {
     Write-Host "  Starting llama-server..." -ForegroundColor Yellow
 
-    $targetModel = Get-Item (Join-Path $root "my-ai\models\Qwen2.5-Coder-7B-Instruct-Uncensored-Q4_K_M.gguf") -ErrorAction SilentlyContinue
-    if (-not $targetModel) { $targetModel = Get-ChildItem (Join-Path $root "my-ai\models\*.gguf") -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 1GB } | Select-Object -First 1 }
+    $targetModel = Get-Item (Join-Path $root "my-ai\models\Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf") -ErrorAction SilentlyContinue
+    if (-not $targetModel) { $targetModel = Get-ChildItem (Join-Path $root "my-ai\models\*.gguf") -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 1GB } | Sort-Object Length -Descending | Select-Object -First 1 }
     $defaultModel = if ($targetModel) { $targetModel.FullName } else { "" }
 
-    $args = "--host 0.0.0.0 --port $llamaPort --ctx-size 4096"
+    $args = "--host 0.0.0.0 --port $llamaPort --ctx-size 8192"
     if ($defaultModel) {
-        $args = "--host 0.0.0.0 --port $llamaPort --ctx-size 4096 --model `"$defaultModel`""
+        $args = "--host 0.0.0.0 --port $llamaPort --ctx-size 8192 --model `"$defaultModel`""
         Write-Host "  Loading model: $($targetModel.Name)" -ForegroundColor Cyan
     }
 

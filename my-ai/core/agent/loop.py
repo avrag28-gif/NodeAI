@@ -44,26 +44,83 @@ class AgentLoop:
 
     def _strip_disclaimers(self, text: str) -> str:
         import re
-        # Remove everything after common disclaimer markers
-        cutoff_patterns = [
-            r'(?i)\n\s*(catatan|peringatan|note|notes|warning|disclaimer|important|perlu diingat|perlu diketahui|pastikan|harap|sebaiknya|please note|always|remember|keep in mind|make sure|ensure)\s*[:\-].*$',
-            r'(?i)\n\s*(gunakan|gunakan.*bijak|gunakan.*hukum|respect|responsibly|ethically|legal|privacy|permission|authorized|allowed|izinkan|diizinkan|izin)\s*.*$',
-            r'(?i)\n\s*(beberapa|some|many)\s+(provider|api|service|layanan)\s+.*$',
-            r'(?i)\n\s*(anda perlu|you need to|you must|you should)\s+.*$',
-            r'(?i)\n\s*#+\s*(notes?|catatan|peringatan|note|warning)\s*.*$',
-            r'(?i)\n\s*[-*]\s*The script uses.*$',
-            r'(?i)\n\s*[-*]\s*You might need.*$',
-            r'(?i)\n\s*[-*]\s*Adjust the.*$',
-            r'(?i)\n\s*[-*]\s*This script assumes.*$',
-            r'(?i)\n\s*[-*]\s*Ensure.*$',
-            r'(?i)\n\s*[-*]\s*Make sure.*$',
-            r'(?i)\n\s*[-*]\s*Remember.*$',
-            r'(?i)\n\s*[-*]\s*Note.*$',
+        # Phase 1: Cut everything after any disclaimer/notes section header
+        cut_headers = [
+            r'\n\s*#{1,3}\s*(catatan|peringatan|note|notes|warning|disclaimer|important|perlu diingat|perlu diketahui|permission|izin|legal|hukum|privacy|privasi|edukasi|education|penjelasan|detail|contoh|example|tutorial|cara|langkah|step|instal|install|kemudian|setelah|before|after)',
+            r'\n\s*\*{2}(catatan|peringatan|note|notes|warning|disclaimer|important|permission|legal|hukum|privacy|privasi)\s*\*{2}\s*:',
+            r'\n\s*(catatan|peringatan|note|notes|warning|disclaimer|important)\s*:',
+            r'\n\s*(perlu diingat|perlu diketahui|perlu diperhatikan|harap diperhatikan|harap diketahui)\s*:',
         ]
-        for p in cutoff_patterns:
-            match = re.search(p, text, re.MULTILINE)
-            if match:
-                text = text[:match.start()]
+        for p in cut_headers:
+            m = re.search(p, text, re.IGNORECASE)
+            if m:
+                text = text[:m.start()]
+
+        # Phase 2: Cut lines starting with disclaimer keywords
+        cut_line_starts = [
+            r'\n\s*[-*]\s*(catatan|peringatan|note|warning|disclaimer|important|perlu|harap|pastikan|sebaiknya|gunakan|respect|remember|ensure|make sure|always|this code|this script|this is for|untuk tujuan| gunakan|anda perlu|you need|you must|you should|beberapa provider|some provider|many provider|the script|adjust|this assumes|for educational|for learning|for testing|please note)',
+            r'\n\s*[-*]\s*(pastikan|harap|sebaiknya|gunakan|anda perlu|perlu diingat|perlu diketahui)',
+            r'\n\s*[-*]\s*(ensure|make sure|remember|note that|keep in mind|be aware|it is important)',
+        ]
+        for p in cut_line_starts:
+            text = re.sub(p, '', text, flags=re.IGNORECASE | re.MULTILINE)
+
+        # Phase 3: Cut any line containing known disclaimer phrases
+        cut_phrases = [
+            r'(?i).*perlu diingat.*',
+            r'(?i).*perlu diketahui.*',
+            r'(?i).*perlu diperhatikan.*',
+            r'(?i).*harap diperhatikan.*',
+            r'(?i).*pastikan.*izinkan.*',
+            r'(?i).*pastikan.*izin.*',
+            r'(?i).*gunakan.*bijak.*',
+            r'(?i).*gunakan.*hukum.*',
+            r'(?i).*gunakan.*bertanggung.*',
+            r'(?i).*respect privacy.*',
+            r'(?i).*respect the law.*',
+            r'(?i).*respect.*right.*',
+            r'(?i).*this is for educational.*',
+            r'(?i).*this is for learning.*',
+            r'(?i).*this is for testing.*',
+            r'(?i).*untuk tujuan edukasi.*',
+            r'(?i).*untuk tujuan pembelajaran.*',
+            r'(?i).*untuk tujuan testing.*',
+            r'(?i).*i am not responsible.*',
+            r'(?i).*saya tidak bertanggung jawab.*',
+            r'(?i).*use responsibly.*',
+            r'(?i).*use ethically.*',
+            r'(?i).*use legally.*',
+            r'(?i).*use at your own risk.*',
+            r'(?i).*use it at your own risk.*',
+            r'(?i).*use this at your own risk.*',
+            r'(?i).*use it responsibly.*',
+            r'(?i).*use it ethically.*',
+            r'(?i).*use it legally.*',
+            r'(?i).*may not work.*',
+            r'(?i).*simplified example.*',
+            r'(?i).*additional security.*',
+            r'(?i).*frequent updates.*',
+            r'(?i).*security measures.*',
+            r'(?i).*pastikan Anda sudah login.*',
+            r'(?i).*WhatsApp mungkin akan memblokir.*',
+            r'(?i).*blokir pesan massal.*',
+        ]
+        for p in cut_phrases:
+            text = re.sub(p, '', text, flags=re.MULTILINE)
+
+        # Phase 4: Cut trailing disclaimers after the main content
+        trailing_patterns = [
+            r'\n\s*(catatan|peringatan|note|notes|warning|disclaimer|important|perlu diingat|perlu diketahui|harap|pastikan|sebaiknya|please note|always|remember|keep in mind|make sure|ensure|gunakan|anda perlu|you need|you must|you should|beberapa provider|for educational|this code|this script)\s*[:\-].*$',
+        ]
+        for p in trailing_patterns:
+            m = re.search(p, text, re.IGNORECASE | re.MULTILINE)
+            if m:
+                text = text[:m.start()]
+
+        # Phase 5: Remove any remaining ### Notes or ### Catatan sections
+        text = re.sub(r'\n\s*#{1,3}\s*(notes?|catatan|peringatan|note|warning|disclaimer|penjelasan|detail)\s*\n.*', '', text, flags=re.IGNORECASE | re.DOTALL)
+
+        # Cleanup: remove excessive newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
         return text.strip()
 
