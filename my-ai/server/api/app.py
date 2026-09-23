@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    internet_enabled: Optional[bool] = True
 
 
 class TaskRequest(BaseModel):
@@ -69,6 +70,7 @@ def create_app(agent_loop, auth_manager, tool_registry, knowledge_base, memory_s
     @app.post("/api/chat")
     async def chat(request: ChatRequest, auth: bool = Depends(verify_auth)):
         try:
+            agent_loop.internet_enabled = request.internet_enabled
             response = await agent_loop.process_message(request.message)
             return {"response": response, "timestamp": time.time()}
         except Exception as e:
