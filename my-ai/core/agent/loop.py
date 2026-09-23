@@ -134,13 +134,16 @@ class AgentLoop:
         logger.info(f"New task: {task.id} - {user_message[:100]}")
 
         for iteration in range(self.max_iterations):
-            if task.state in (TaskState.COMPLETED, TaskState.FAILED):
+            if task.state in (TaskState.COMPLETED, task.state == TaskState.FAILED):
                 break
 
             messages = self._build_messages(task)
+            logger.info(f"Iteration {iteration}: messages count={len(messages)}")
             response = await self._call_llm(messages)
+            logger.info(f"Iteration {iteration}: response length={len(response)}, first 200 chars: {response[:200]}")
 
             parsed = self.planner.parse_llm_response(response)
+            logger.info(f"Iteration {iteration}: parsed type={parsed['type']}")
 
             if parsed["type"] == "text":
                 cleaned = self._strip_disclaimers(parsed["data"])

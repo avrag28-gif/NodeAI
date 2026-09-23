@@ -11,7 +11,7 @@ class LLMClient:
     def __init__(self, host: str = "127.0.0.1", port: int = 8080, model: str = ""):
         self.base_url = f"http://{host}:{port}"
         self.model = model
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.client = httpx.AsyncClient(timeout=600.0)
         # Diagnostic state: lets the agent distinguish model behavior from agent-layer behavior.
         self.last_trace = {
             "started_at": None,
