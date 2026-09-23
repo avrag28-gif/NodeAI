@@ -173,8 +173,9 @@ class AgentLoop:
         return text.strip()
 
     async def process_message(self, user_message: str) -> str:
-        # Clear history for fresh context (prevents refusal contamination)
-        self.conversation.history = []
+        # Keep conversation history for memory (limit to last 20 messages)
+        if len(self.conversation.history) > 20:
+            self.conversation.history = self.conversation.history[-20:]
         self.conversation.add_user_message(user_message)
 
         task = self.conversation.start_task(user_message)
@@ -230,6 +231,25 @@ class AgentLoop:
                     clean_result = result.replace("&#8211;", "–").replace("&#038;", "&").replace("&amp;", "&")
                     clean_result = re.sub(r'<[^>]+>', ' ', clean_result).strip()
                     
+                    # Check if user wants specific code/content
+                    user_wants_code = any(kw in user_message.lower() for kw in ['kode', 'code', 'script', 'github', 'contoh', 'tutorial', 'langkah', 'cara', 'install', 'buka', 'fetch', 'ambil', 'source', 'repo'])
+                    
+                    if tool_name == 'web_search':
+                        # Extract URLs from search results
+                        import re as re2
+                        urls = re2.findall(r'https?://[^\s\]\)]+', clean_result)
+                        
+                        # If user wants code, fetch GitHub/raw content
+                        if user_wants_code and urls:
+                            for url in urls[:3]:  # Try up to 3 URLs
+                                if 'github.com' in url or 'raw.githubusercontent' in url:
+                                    logger.info(f"Fetching GitHub: {url}")
+                                    fetch_result = await self._execute_with_retry(task, {"action": "fetch_web", "args": {"url": url}})
+                                    if not fetch_result.startswith("Error:"):
+                                        clean_result = fetch_result.replace("&#8211;", "–").replace("&#038;", "&").replace("&amp;", "&")
+                                        clean_result = re.sub(r'<[^>]+>', ' ', clean_result).strip()
+                                        break
+                    
                     # Add to conversation history
                     self.conversation.add_assistant_message(
                         f"[Hasil pencarian internet]: {clean_result[:2000]}",
@@ -238,7 +258,7 @@ class AgentLoop:
                     
                     # Ask model to summarize the search results
                     follow_up = [
-                        {"role": "user", "content": f"Berikut hasil pencarian dari internet:\n\n{clean_result[:2000]}\n\nSekarang ringkas dan jelaskan hasilnya kepada user dalam bahasa yang mudah dipahami. Jangan copy paste mentah, tapi simpulkan."},
+                        {"role": "user", "content": f"Berikut hasil pencarian dari internet:\n\n{clean_result[:2000]}\n\nTugas Anda: Jelaskan hasilnya kepada user dalam bahasa yang mudah dipahami. Jika ada kode program, TAMPILKAN kodenya dalam code block. Jika ada link GitHub, jelaskan isi repository-nya. Jangan copy paste mentah dari search results, tapi simpulkan dengan bahasa Anda sendiri."},
                     ]
                     
                     follow_response = await self._call_llm(follow_up)
