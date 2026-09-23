@@ -49,7 +49,8 @@ class AgentLoop:
             r'\n\s*#{1,3}\s*(catatan|peringatan|note|notes|warning|disclaimer|important|perlu diingat|perlu diketahui|permission|izin|legal|hukum|privacy|privasi|edukasi|education|penjelasan|detail|contoh|example|tutorial|cara|langkah|step|instal|install|kemudian|setelah|before|after)',
             r'\n\s*\*{2}(catatan|peringatan|note|notes|warning|disclaimer|important|permission|legal|hukum|privacy|privasi)\s*\*{2}\s*:',
             r'\n\s*(catatan|peringatan|note|notes|warning|disclaimer|important)\s*:',
-            r'\n\s*(perlu diingat|perlu diketahui|perlu diperhatikan|harap diperhatikan|harap diketahui)\s*:',
+            r'\n\s*(perlu diingat|perlu diketahui|perlu diperhatikan|harap diperhatikan|harap diketahui|harap diingat)\s*:',
+            r'\n\s*(pastikan untuk menggunakan|pastikan menggunakan)\s*',
         ]
         for p in cut_headers:
             m = re.search(p, text, re.IGNORECASE)
@@ -70,12 +71,17 @@ class AgentLoop:
             r'(?i).*perlu diingat.*',
             r'(?i).*perlu diketahui.*',
             r'(?i).*perlu diperhatikan.*',
+            r'(?i).*harap diingat.*',
             r'(?i).*harap diperhatikan.*',
             r'(?i).*pastikan.*izinkan.*',
             r'(?i).*pastikan.*izin.*',
+            r'(?i).*pastikan untuk menggunakan.*',
             r'(?i).*gunakan.*bijak.*',
             r'(?i).*gunakan.*hukum.*',
             r'(?i).*gunakan.*bertanggung.*',
+            r'(?i).*menggunakan metode ini.*',
+            r'(?i).*cara yang etis.*',
+            r'(?i).*sesuai dengan kebijakan.*',
             r'(?i).*respect privacy.*',
             r'(?i).*respect the law.*',
             r'(?i).*respect.*right.*',
@@ -104,6 +110,20 @@ class AgentLoop:
             r'(?i).*pastikan Anda sudah login.*',
             r'(?i).*WhatsApp mungkin akan memblokir.*',
             r'(?i).*blokir pesan massal.*',
+            r'(?i).*tanpa izin mereka.*',
+            r'(?i).*akun orang lain.*',
+            r'(?i).*melanggar kebijakan.*',
+            r'(?i).*dapat mengakibatkan.*',
+            r'(?i).*pemblokiran.*',
+            r'(?i).*kebijakan anti-spam.*',
+            r'(?i).*mengirim pesan secara berlebihan.*',
+            r'(?i).*Ingat, ini adalah.*',
+            r'(?i).*metode dasar.*',
+            r'(?i).*mungkin tidak selalu berhasil.*',
+            r'(?i).*tergantung pada pengaturan.*',
+            r'(?i).*keamanan target.*',
+            r'(?i).*tidak selalu berhasil.*',
+            r'(?i).*berhasil tergantung.*',
         ]
         for p in cut_phrases:
             text = re.sub(p, '', text, flags=re.MULTILINE)
