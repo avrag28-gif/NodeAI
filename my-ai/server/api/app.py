@@ -45,7 +45,13 @@ def create_app(agent_loop, auth_manager, tool_registry, knowledge_base, memory_s
     async def root():
         web_index = Path(__file__).resolve().parents[2] / "web" / "index.html"
         if web_index.exists():
-            return web_index.read_text(encoding="utf-8")
+            from fastapi.responses import HTMLResponse as HR
+            content = web_index.read_text(encoding="utf-8")
+            resp = HR(content)
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
         return HTMLResponse("<h1>NodeAI Server</h1><p>Web client not installed.</p>")
 
     @app.get("/api/status")
