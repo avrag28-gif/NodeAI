@@ -40,14 +40,14 @@ What should the next action be? Respond with a JSON action block or your final a
                 end = response.index("```", start)
                 json_str = response[start:end].strip()
                 parsed = json.loads(json_str)
-                if "action" in parsed or "tool" in parsed:
+                if isinstance(parsed, dict) and ("action" in parsed or "tool" in parsed):
                     return {"type": "tool_call", "data": parsed}
             except (ValueError, json.JSONDecodeError):
                 pass
 
         try:
             parsed = json.loads(response)
-            if "action" in parsed or "tool" in parsed:
+            if isinstance(parsed, dict) and ("action" in parsed or "tool" in parsed):
                 return {"type": "tool_call", "data": parsed}
         except json.JSONDecodeError:
             pass
@@ -57,7 +57,7 @@ What should the next action be? Respond with a JSON action block or your final a
         if json_match:
             try:
                 parsed = json.loads(json_match.group())
-                if "action" in parsed or "tool" in parsed:
+                if isinstance(parsed, dict) and ("action" in parsed or "tool" in parsed):
                     return {"type": "tool_call", "data": parsed}
             except json.JSONDecodeError:
                 pass

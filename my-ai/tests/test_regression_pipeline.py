@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import re
+import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -107,6 +108,7 @@ def test_missing_auth():
 
 # --- AgentLoop tests (mock) ---
 
+@pytest.mark.asyncio
 async def test_agentloop_returns_llm_text():
     llm = make_mock_llm("This is the answer")
     loop = AgentLoop(llm, make_mock_tools())
@@ -115,6 +117,7 @@ async def test_agentloop_returns_llm_text():
     print("PASS: AgentLoop returns LLM text directly")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_temperature():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools(), {"temperature": 0.3})
@@ -125,6 +128,7 @@ async def test_agentloop_temperature():
     print("PASS: AgentLoop forwards temperature")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_max_tokens():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools(), {"max_tokens": 1024})
@@ -135,6 +139,7 @@ async def test_agentloop_max_tokens():
     print("PASS: AgentLoop forwards max_tokens")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_system_prompt():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools())
@@ -147,6 +152,7 @@ async def test_agentloop_system_prompt():
     print("PASS: AgentLoop system prompt consistent")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_no_refusal():
     llm = make_mock_llm("I cannot do that")
     loop = AgentLoop(llm, make_mock_tools())
@@ -156,6 +162,7 @@ async def test_agentloop_no_refusal():
     print("PASS: AgentLoop no refusal detection")
 
 
+@pytest.mark.asyncio
 async def test_agentloop_user_message():
     llm = make_mock_llm("OK")
     loop = AgentLoop(llm, make_mock_tools())
@@ -251,5 +258,62 @@ async def main():
         sys.exit(1)
 
 
+# --- Instruction-following tests (sentinel) ---
+
+SENTINEL = "MODEL_OUTPUT_SENTINEL_7392"
+
+@pytest.mark.asyncio
+async def test_sentinel_returned_identically():
+    llm = make_mock_llm(SENTINEL)
+    loop = AgentLoop(llm, make_mock_tools())
+    result = await loop.process_message("test")
+    assert result == SENTINEL, f"Expected sentinel identical, got: {result}"
+    print("PASS: sentinel returned identically")
+
+
+@pytest.mark.asyncio
+async def test_no_post_processing():
+    responses = [
+        "I cannot help with that.",
+        "I'm sorry, but I can't assist with that request.",
+        "As an AI, I must decline this request.",
+        "DISCLAIMER: This is for educational purposes only.",
+    ]
+    for resp in responses:
+        llm = make_mock_llm(resp)
+        loop = AgentLoop(llm, make_mock_tools())
+        result = await loop.process_message("test")
+        assert result == resp, f"Post-processing detected: expected {resp!r}, got {result!r}"
+    print("PASS: no post-processing on any response")
+
+
+@pytest.mark.asyncio
+async def test_no_disclaimer_injection():
+    llm = make_mock_llm("Plain answer.")
+    loop = AgentLoop(llm, make_mock_tools())
+    result = await loop.process_message("test")
+    assert "DISCLAIMER" not in result.upper()
+    assert "WARNING" not in result.upper()
+    assert "NOTICE" not in result.upper()
+    print("PASS: no disclaimer injection")
+
+
+@pytest.mark.asyncio
+async def test_conversation_history_forwarded():
+    llm = make_mock_llm("response")
+    loop = AgentLoop(llm, make_mock_tools())
+    await loop.process_message("first message")
+    await loop.process_message("second message")
+    call_args = llm.chat.call_args_list
+    first_call_msgs = call_args[0][0][0]
+    second_call_msgs = call_args[1][0][0]
+    assert len(first_call_msgs) == 2, f"Turn 1 should have 2 messages: {first_call_msgs}"
+    assert len(second_call_msgs) == 4, f"Turn 2 should have 4 messages: {second_call_msgs}"
+    assert second_call_msgs[1]["content"] == "first message"
+    assert second_call_msgs[2]["role"] == "assistant"
+    assert second_call_msgs[3]["content"] == "second message"
+    print("PASS: conversation history forwarded correctly")
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    pytest.main([__file__, "-q"])
