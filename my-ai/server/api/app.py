@@ -41,9 +41,12 @@ def create_app(agent_loop, auth_manager, tool_registry, knowledge_base, memory_s
             raise HTTPException(status_code=401, detail="Invalid token")
         return True
 
-    @app.get("/")
+    @app.get("/", response_class=HTMLResponse)
     async def root():
-        return {"name": "MyAI Server", "version": "1.0.0", "status": "running"}
+        web_index = Path(__file__).resolve().parents[2] / "web" / "index.html"
+        if web_index.exists():
+            return web_index.read_text(encoding="utf-8")
+        return HTMLResponse("<h1>NodeAI Server</h1><p>Web client not installed.</p>")
 
     @app.get("/api/status")
     async def get_status():

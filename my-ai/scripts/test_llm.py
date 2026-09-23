@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.llm.client import LLMClient
 
 
-async def test_connection():
+async def check_connection():
     client = LLMClient()
     ok = await client.health_check()
     print(f"LLM Connection: {'OK' if ok else 'FAILED'}")
@@ -18,4 +18,4 @@ async def test_connection():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_connection())
+    asyncio.run(check_connection())

@@ -1,5 +1,6 @@
 import sys
 import asyncio
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -8,6 +9,7 @@ from core.memory.memory import MemorySystem
 from core.knowledge.knowledge import KnowledgeBase
 
 
+@pytest.mark.asyncio
 async def test_memory():
     print("=== Testing Memory System ===")
     mem = MemorySystem("data/memory/test.db")
@@ -24,6 +26,7 @@ async def test_memory():
     print("Memory test OK\n")
 
 
+@pytest.mark.asyncio
 async def test_knowledge():
     print("=== Testing Knowledge Base ===")
     kb = KnowledgeBase("data/knowledge/test.db")

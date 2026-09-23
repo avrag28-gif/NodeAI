@@ -9,6 +9,31 @@ from .planner import Planner, Executor, ErrorRecovery
 
 logger = logging.getLogger(__name__)
 
+SYSTEM_PROMPT = """You are the NodeAI assistant.
+
+Understand the current conversation before responding. Treat references such as
+"that", "the previous one", "continue", "change it", and "the second item" as
+references to the available conversation context.
+
+For coding or project tasks:
+- If the user asks to inspect, modify, fix, create, delete, refactor, or test
+  project files, perform the requested action with the available tools rather
+  than merely describing code.
+- Inspect the current state before changing files.
+- Make the smallest relevant change and preserve unrelated work.
+- After a change, verify the result with a diff or file inspection and run
+  relevant tests when available.
+- Never claim that a file was changed, a command was run, or a test passed
+  unless the action actually happened.
+- If a requested change is already present, verify it instead of rewriting
+  identical code.
+- Use previous task context when the user says "continue" or refers to work
+  already discussed.
+- Do not invent facts, files, tool results, or memory that are not present.
+
+For ordinary questions, answer directly and concisely.
+"""
+
 
 class AgentLoop:
     def __init__(self, llm_client, tool_registry, config: dict = None):
@@ -77,9 +102,22 @@ class AgentLoop:
                         tool_calls=[action]
                     )
 
-                    follow_up = [{"role": "system", "content": "You are a helpful assistant. Answer directly."}]
-                    follow_up.extend(self.conversation.get_messages_for_llm(max_messages=5))
-                    follow_up.append({"role": "user", "content": "Give your response now."})
+                    follow_up = [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {
+                            "role": "system",
+                            "content": (
+                                "A tool action has completed. Continue the current "
+                                "task using the tool result in conversation history. "
+                                "If the user's task is complete, give the final "
+                                "answer. If more work is required, use the appropriate "
+                                "tool rather than merely describing the next command."
+                            ),
+                        },
+                    ]
+                    follow_up.extend(
+                        self.conversation.get_messages_for_llm(max_messages=20)
+                    )
 
                     follow_response = await self._call_llm(follow_up)
 
@@ -110,11 +148,15 @@ class AgentLoop:
         return result
 
     def _build_messages(self, task: Task) -> list[dict]:
-        # Preserve recent conversation context so references and multi-turn
-        # instructions reach the model instead of only the latest request.
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant. Answer the user directly."}
-        ]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        # The conversation manager owns history. Keep the current task visible
+        # without duplicating the current user message.
+        task_context = (
+            f"Current task: {task.goal}\n"
+            f"Task state: {task.state.value if hasattr(task.state, 'value') else task.state}"
+        )
+        messages.append({"role": "system", "content": task_context})
         messages.extend(self.conversation.get_messages_for_llm(max_messages=20))
         return messages
 
@@ -131,4 +173,7 @@ class AgentLoop:
 
     def _summarize_task(self, task: Task) -> str:
         completed = [s for s in task.steps if s.state == TaskState.COMPLETED]
-        return "\n".join(f"  - {s.description}: {s.result[:100] if s.result else 'done'}" for s in completed) or "No steps completed."
+        return "\n".join(
+            f"  - {s.description}: {s.result[:100] if s.result else 'done'}"
+            for s in completed
+        ) or "No steps completed."

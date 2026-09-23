@@ -1,0 +1,112 @@
+name: NodeAI Public Runtime
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: nodeai-public-runtime
+  cancel-in-progress: true
+
+jobs:
+  public-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: my-ai
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: my-ai/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build llama.cpp server
+        working-directory: .
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git .ci-llama.cpp
+          cmake -S .ci-llama.cpp -B .ci-llama.cpp/build -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build .ci-llama.cpp/build --config Release --target llama-server -j2
+
+      - name: Download and verify Dolphin GGUF
+        working-directory: .
+        shell: bash
+        run: |
+          mkdir -p my-ai/models
+          curl -L --fail --retry 3 -o my-ai/models/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf "https://huggingface.co/bartowski/dolphin-2.9.4-llama3.1-8b-GGUF/resolve/main/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf?download=true"
+          echo "601e951c801c1d9140a89bf4f1acfc1ab34991e4ab18d9aaac8f09e3bab4001d  my-ai/models/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf" | sha256sum -c -
+
+      - name: Start llama-server
+        working-directory: .
+        shell: bash
+        run: |
+          .ci-llama.cpp/build/bin/llama-server -m my-ai/models/dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf --host 127.0.0.1 --port 8080 -t 2 --ctx-size 2048 --temp 0.7 --top-p 0.95 --repeat-penalty 1.1 --min-p 0.05 > /tmp/llama-server.log 2>&1 &
+          for i in {1..60}; do curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1 && exit 0; sleep 2; done
+          cat /tmp/llama-server.log
+          exit 1
+
+      - name: Start NodeAI FastAPI
+        env:
+          MYAI_AUTH_TOKEN: ${{ secrets.MYAI_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          test -n "$MYAI_AUTH_TOKEN" || { echo "MYAI_AUTH_TOKEN secret is required"; exit 1; }
+          python server/app.py > /tmp/nodeai-server.log 2>&1 &
+          for i in {1..60}; do curl -fsS http://127.0.0.1:5000/ >/dev/null 2>&1 && exit 0; sleep 2; done
+          cat /tmp/nodeai-server.log
+          exit 1
+
+      - name: Start ngrok
+        working-directory: .
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        shell: bash
+        run: |
+          test -n "$NGROK_AUTHTOKEN" || { echo "NGROK_AUTHTOKEN secret is required"; exit 1; }
+          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip
+          unzip -o /tmp/ngrok.zip -d /tmp/ngrok >/dev/null
+          /tmp/ngrok/ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          /tmp/ngrok/ngrok http 5000 --pooling-enabled --log=stdout > /tmp/ngrok.log 2>&1 &
+          url=""
+          for i in {1..30}; do
+            url=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null | python -c 'import json,sys; d=json.load(sys.stdin); print(next((t["public_url"] for t in d.get("tunnels",[]) if t.get("proto")=="https"), ""))' || true)
+            test -n "$url" && break
+            sleep 2
+          done
+          test -n "$url" || { cat /tmp/ngrok.log; exit 1; }
+          printf '%s\n' "$url" > /tmp/nodeai-public-url.txt
+          echo "### NodeAI public URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+          echo "NodeAI public URL: $url"
+
+      - name: Publish URL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodeai-public-url
+          path: /tmp/nodeai-public-url.txt
+          retention-days: 1
+
+      - name: Hold public runtime
+        shell: bash
+        run: |
+          echo "NodeAI public runtime is live for 25 minutes."
+          sleep 1500
+
+      - name: Dump logs
+        if: always()
+        shell: bash
+        run: |
+          cat /tmp/ngrok.log || true
+          cat /tmp/nodeai-server.log || true
+          cat /tmp/llama-server.log || true
