@@ -125,6 +125,8 @@ class AgentLoop:
         return text.strip()
 
     async def process_message(self, user_message: str) -> str:
+        # Clear history for fresh context (prevents refusal contamination)
+        self.conversation.history = []
         self.conversation.add_user_message(user_message)
 
         task = self.conversation.start_task(user_message)
@@ -218,15 +220,13 @@ class AgentLoop:
 
     def _build_messages(self, task: Task) -> list[dict]:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-        # The conversation manager owns history. Keep the current task visible
-        # without duplicating the current user message.
-        task_context = (
-            f"Current task: {task.goal}\n"
-            f"Task state: {task.state.value if hasattr(task.state, 'value') else task.state}"
-        )
-        messages.append({"role": "system", "content": task_context})
-        messages.extend(self.conversation.get_messages_for_llm(max_messages=20))
+        
+        # Only add user message from conversation history (no system clutter)
+        history = self.conversation.get_messages_for_llm(max_messages=5)
+        for msg in history:
+            if msg["role"] == "user":
+                messages.append(msg)
+        
         return messages
 
     async def _call_llm(self, messages: list[dict]) -> str:
