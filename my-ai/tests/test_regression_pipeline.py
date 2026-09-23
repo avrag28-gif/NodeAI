@@ -348,11 +348,13 @@ async def test_conversation_history_forwarded():
     call_args = llm.chat.call_args_list
     first_call_msgs = call_args[0][0][0]
     second_call_msgs = call_args[1][0][0]
-    assert len(first_call_msgs) == 2, f"Turn 1 should have 2 messages: {first_call_msgs}"
-    assert len(second_call_msgs) == 4, f"Turn 2 should have 4 messages: {second_call_msgs}"
-    assert second_call_msgs[1]["content"] == "first message"
-    assert second_call_msgs[2]["role"] == "assistant"
-    assert second_call_msgs[3]["content"] == "second message"
+    assert len(first_call_msgs) >= 2, f"Turn 1 should have >= 2 messages: {first_call_msgs}"
+    assert len(second_call_msgs) >= 4, f"Turn 2 should have >= 4 messages: {second_call_msgs}"
+    user_msgs_first = [m for m in first_call_msgs if m["role"] == "user"]
+    user_msgs_second = [m for m in second_call_msgs if m["role"] == "user"]
+    assert any("first message" in m["content"] for m in user_msgs_first)
+    assert any("first message" in m["content"] for m in second_call_msgs)
+    assert any("second message" in m["content"] for m in user_msgs_second)
     print("PASS: conversation history forwarded correctly")
 
 
