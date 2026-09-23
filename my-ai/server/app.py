@@ -16,7 +16,7 @@ from tools.registry import ToolRegistry
 from tools.filesystem.tools import ReadFileTool, WriteFileTool, ListDirTool, DeleteFileTool, SearchFilesTool, MakeDirTool, CopyFileTool
 from tools.terminal.tools import TerminalTool
 from tools.python.tools import PythonTool
-from tools.internet.tools import WebSearchTool, FetchWebTool
+from tools.internet.tools import WebSearchTool, FetchWebTool, TorSearchTool, ArchiveWebTool, DeepWebSearchTool
 from server.auth.manager import AuthManager
 from server.api.app import create_app
 
@@ -47,7 +47,7 @@ def setup_tools(tool_registry: ToolRegistry, permissions: dict, workspace: str):
         ReadFileTool, WriteFileTool, ListDirTool, DeleteFileTool,
         SearchFilesTool, MakeDirTool, CopyFileTool,
         TerminalTool, PythonTool,
-        WebSearchTool, FetchWebTool
+        WebSearchTool, FetchWebTool, TorSearchTool, ArchiveWebTool, DeepWebSearchTool
     ]
 
     for cls in tool_classes:
