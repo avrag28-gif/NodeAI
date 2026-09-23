@@ -17,15 +17,14 @@ class WebSearchTool(BaseTool):
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en-US,en;q=0.9",
         }
 
         try:
             async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                # Try DuckDuckGo (bot-friendly)
                 response = await client.get(
-                    "https://www.google.com/search",
-                    params={"q": query, "num": 5},
+                    "https://html.duckduckgo.com/html/",
+                    params={"q": query},
                     headers=headers
                 )
 
@@ -33,39 +32,31 @@ class WebSearchTool(BaseTool):
                     text = response.text
                     results = []
 
-                    # Extract search results
-                    # Google uses different patterns, try common ones
-                    # Pattern for search result titles and snippets
-                    blocks = re.findall(r'<div class="[^"]*"[^>]*>.*?<h3[^>]*>(.*?)</h3>.*?</div>', text, re.DOTALL)
-
-                    # Alternative: find all h3 tags
-                    titles = re.findall(r'<h3[^>]*>(.*?)</h3>', text, re.DOTALL)
-                    # Find snippets near the titles
-                    snippets = re.findall(r'<span[^>]*class="[^"]*"[^>]*>(.*?)</span>', text, re.DOTALL)
-
-                    for i, title in enumerate(titles[:5]):
-                        clean_title = re.sub(r'<.*?>', '', title).strip()
-                        if clean_title:
-                            snippet = ""
-                            if i < len(snippets):
-                                snippet = re.sub(r'<.*?>', '', snippets[i]).strip()
-                            results.append(f"{i+1}. {clean_title}\n   {snippet}")
-
+                    # Extract results from DuckDuckGo
+                    blocks = re.findall(r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?<a[^>]*class="result__snippet"[^>]*>(.*?)</a>', text, re.DOTALL)
+                    
+                    if blocks:
+                        for i, (title, snippet) in enumerate(blocks[:5]):
+                            clean_title = re.sub(r'<.*?>', '', title).strip()
+                            clean_snippet = re.sub(r'<.*?>', '', snippet).strip()
+                            if clean_title:
+                                results.append(f"{i+1}. {clean_title}\n   {clean_snippet}")
+                    
                     if results:
                         return "\n\n".join(results)
 
-                    # Fallback: just extract text between h3 tags
-                    h3_pattern = re.findall(r'<h3[^>]*>(.*?)</h3>', text, re.DOTALL)
-                    if h3_pattern:
-                        results = []
-                        for i, h in enumerate(h3_pattern[:5]):
-                            clean = re.sub(r'<.*?>', '', h).strip()
-                            if clean:
-                                results.append(f"{i+1}. {clean}")
-                        if results:
-                            return "\n\n".join(results)
+                    # Fallback: extract any links
+                    links = re.findall(r'<a[^>]*href="(http[^"]*)"[^>]*>(.*?)</a>', text, re.DOTALL)
+                    if links:
+                        for i, (url, title) in enumerate(links[:5]):
+                            clean_title = re.sub(r'<.*?>', '', title).strip()
+                            if clean_title and 'duckduckgo' not in url:
+                                results.append(f"{i+1}. {clean_title}\n   {url}")
+                    
+                    if results:
+                        return "\n\n".join(results)
 
-                    # Last resort: extract any visible text
+                    # Last resort: extract text
                     clean = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL)
                     clean = re.sub(r'<style[^>]*>.*?</style>', '', clean, flags=re.DOTALL)
                     clean = re.sub(r'<[^>]+>', ' ', clean)
