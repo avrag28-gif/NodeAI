@@ -20,9 +20,8 @@ jobs:
       - name: Deploy Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ vars.HF_SPACE_ID }}
         run: |
           test -n "$HF_TOKEN"
+          test -n "$HF_SPACE_ID"
           hf upload "$HF_SPACE_ID" ai-server/ . --repo-type=space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_ID: ${{ vars.HF_SPACE_ID }}
