@@ -17,6 +17,15 @@ jobs:
       - name: Install Hugging Face CLI
         run: pip install -U huggingface_hub
 
+      - name: Create Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ vars.HF_SPACE_ID }}
+        run: |
+          test -n "$HF_TOKEN"
+          test -n "$HF_SPACE_ID"
+          hf repos create "$HF_SPACE_ID" --type space --space-sdk gradio || true
+
       - name: Deploy Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
