@@ -13,3 +13,5 @@ pinned: false
 Deploy this folder as a Hugging Face ZeroGPU Space.
 
 The server exposes a Gradio UI and an API endpoint for text generation.
+
+Deployment pipeline: GitHub Actions → Hugging Face Space.
